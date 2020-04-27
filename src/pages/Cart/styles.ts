@@ -113,4 +113,4 @@ export const SubtotalValue = styled.Text`
   font-size: 16px;
   color: #fff;
   font-weight: bold;
-`;
+;`
