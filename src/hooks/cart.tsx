@@ -32,9 +32,7 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      const storedProducts = await AsyncStorage.getItem(
-        ASYNC_STORAGE_KEY,
-      );
+      const storedProducts = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
 
       if (storedProducts) {
         setProducts(JSON.parse(storedProducts));
@@ -44,59 +42,67 @@ const CartProvider: React.FC = ({ children }) => {
     loadProducts();
   }, []);
 
-  async function saveToStorage(productArray: Product[]): Promise<void> {
-    await AsyncStorage.setItem(
-      ASYNC_STORAGE_KEY, JSON.stringify(productArray)
-    );
-    console.log('acabou');
-  }
-
-  const addToCart = useCallback(async product => {
-    const itemInCart = products.find(item => item.id === product.id);
-
-    if (!!itemInCart) {
-      increment(product.id);
-    } else {
-      const newProducts = [...products, { ...product, quantity: 1 }];
-
-      setProducts(newProducts);
-      // await AsyncStorage.setItem(
-      //   ASYNC_STORAGE_KEY, JSON.stringify(newProducts)
-      // );
-      saveToStorage(newProducts);
-    }
-      // setProducts(state => [...state, product]);
-  }, [products]);
-
   const increment = useCallback(async id => {
     const newProducts = [...products];
-    const addProductIndex = newProducts.findIndex(item => item.id === id);
 
-    newProducts[addProductIndex].quantity++;
+    const productInCart = newProducts.find(item => item.id === id);
+    const productInCartIndex = newProducts.findIndex(item => item.id === id);
+
+    if (productInCart) {
+      newProducts.splice(productInCartIndex, 1);
+    } else {
+      throw new Error('Product not found');
+    }
+
+    productInCart.quantity += 1;
+
+    newProducts.push(productInCart);
 
     setProducts(newProducts);
-    // await AsyncStorage.setItem(
-    //   ASYNC_STORAGE_KEY, JSON.stringify(newProducts)
-    // );
-    saveToStorage(newProducts);
+
+    await AsyncStorage.setItem(ASYNC_STORAGE_KEY, JSON.stringify(products));
   }, [products]);
 
   const decrement = useCallback(async id => {
     const newProducts = [...products];
-    const removeProductIndex = newProducts.findIndex(item => item.id === id);
 
-    if (newProducts[removeProductIndex].quantity <= 1) {
-      newProducts.splice(removeProductIndex, 1);
+    const productInCart = newProducts.find(item => item.id === id);
+    const productInCartIndex = newProducts.findIndex(item => item.id === id);
+
+    if (productInCart) {
+      newProducts.splice(productInCartIndex, 1);
     } else {
-      newProducts[removeProductIndex].quantity--;
+      throw new Error('Product not found');
     }
 
-    // await AsyncStorage.setItem(
-    //   ASYNC_STORAGE_KEY, JSON.stringify(newProducts)
-    // );
-    setProducts(newProducts);
-    saveToStorage(newProducts);
+    if (productInCart.quantity <= 1) {
+      setProducts(newProducts);
+    } else {
+      productInCart.quantity -= 1;
+
+      newProducts.push(productInCart);
+
+      setProducts(newProducts);
+    }
+
+    await AsyncStorage.setItem(ASYNC_STORAGE_KEY, JSON.stringify(products));
   }, [products]);
+
+  const addToCart = useCallback(async product => {
+    const productInCart = products.findIndex(item => item.id === product.id);
+
+    if (productInCart !== -1) {
+      increment(product.id);
+      return;
+    }
+
+    product.quantity = 1;
+
+    products.push(product);
+    setProducts([...products]);
+
+    await AsyncStorage.setItem(ASYNC_STORAGE_KEY, JSON.stringify(products));
+  }, [products, increment]);
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
